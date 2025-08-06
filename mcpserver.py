@@ -1,10 +1,9 @@
-#This is correct mcpserver file 
-
+#make sure file directory should be there you can find it in another file 
 
 # mcpserver.py
 
 from fastapi import FastAPI
-from fastmcp.server import FastMCP
+from fastmcp.server.fastmcp import FastMCP
 import requests
 
 # Step 1: Create FastAPI app
@@ -53,4 +52,12 @@ async def get_pods_in_namespace(namespace: str):
     except Exception as e:
         return {"error": str(e)}
 
-# Step 5: Add health route (optio
+# Step 5: Add health route (optional)
+@app.get("/")
+def root():
+    return {"message": "MCP Server is running!"}
+
+# ✅ Step 6: Mount FastMCP's router to the FastAPI app manually
+app.include_router(mcp_server.router, prefix="/tools")
+
+# ✅ This 'app' will be used by Uvicorn
