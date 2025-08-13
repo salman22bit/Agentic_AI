@@ -1,0 +1,142 @@
+#my main.py file 
+
+
+# api_server/main.py
+from fastapi import FastAPI
+from kubernetes import client, config
+
+app = FastAPI()
+
+# Load kubeconfig
+config.load_kube_config(config_file="kube_config")
+
+@app.get("/nodes")
+def get_nodes():
+    v1 = client.CoreV1Api()
+    nodes = v1.list_node().items
+    return [node.metadata.name for node in nodes]
+
+@app.get("/pods")
+def get_pods():
+    v1 = client.CoreV1Api()
+    pods = v1.list_pod_for_all_namespaces().items
+    return [f"{pod.metadata.namespace}/{pod.metadata.name}" for pod in pods]
+
+@app.get("/namespaces")
+def get_namespaces():
+    v1 = client.CoreV1Api()
+    namespaces = v1.list_namespace().items
+    return [ns.metadata.name for ns in namespaces]
+
+
+---
+
+
+#make sure file directory should be there you can find it in another file 
+
+# mcpserver.py
+
+from fastapi import FastAPI
+from fastmcp import FastMCP
+import requests
+
+# Step 1: Create FastAPI app
+# app = FastAPI(title="MCP Kubernetes Tool Server")
+
+# Step 2: Initialize FastMCP
+mcp_server = FastMCP(name="kubernetesTools")
+
+# Step 3: Define your tool base URL (main.py service)
+URL = "http://127.0.0.1:5001"
+
+# Step 4: Define all MCP tools
+@mcp_server.tool()
+async def get_pods():
+    """Get all pods"""
+    try:
+        response = requests.get(f"{URL}/pods")
+        return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+    
+
+@mcp_server.tool()
+async def get_nodes():
+    """Get all nodes"""
+    try:
+        response = requests.get(f"{URL}/nodes")
+        return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+if __name__=="__main__":
+    mcp_server.run()
+
+# @mcp_server.tool()
+# async def get_namespaces():
+#     """Get all namespaces"""
+#     try:
+#         response = requests.get(f"{URL}/namespaces")
+#         return response.json()
+#     except Exception as e:
+#         return {"error": str(e)}
+
+# @mcp_server.tool()
+# async def get_pods_in_namespace(namespace: str):
+#     """Get pods in the given namespace"""
+#     try:
+#         response = requests.get(f"{URL}/pods/{namespace}")
+#         return response.json()
+#     except Exception as e:
+#         return {"error": str(e)}
+
+# # Step 5: Add health route (optional)
+# @app.get("/")
+# def root():
+#     return {"message": "MCP Server is running!"}
+
+# # ✅ Step 6: Mount FastMCP's router to the FastAPI app manually
+# app.include_router(mcp_server.router, prefix="/tools")
+
+# # ✅ This 'app' will be used by Uvicorn
+
+
+---
+
+#client.py
+
+# # client_test.py
+# import asyncio
+# from fastmcp.client import Client
+# from mcpserver import mcp_server  # Import your FastMCP server instance
+
+# async def main():
+#     async with Client(mcp_server) as client:
+#         result = await client.call_tool("get_pods")
+#         print("Pods:", result)
+
+
+
+# if __name__ == "__main__":
+#     asyncio.run(main())
+
+
+import asyncio
+from fastmcp.client import Client
+from mcpserver import mcp_server  # Import your FastMCP server instance
+
+async def main():
+    async with Client(mcp_server) as client:
+        # Call get_pods tool
+        pods_result = await client.call_tool("get_pods")
+        print("\n=== Pods ===")
+        print(pods_result)
+
+        # Call get_nodes tool
+        nodes_result = await client.call_tool("get_nodes")
+        print("\n=== Nodes ===")
+        print(nodes_result)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
